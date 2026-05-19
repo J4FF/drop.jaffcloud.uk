@@ -1,0 +1,7 @@
+data/admin-password.txt
+data/db.json
+data/server.log
+storage/files/
+storage/uploads/
+node_modules/
+.DS_Store

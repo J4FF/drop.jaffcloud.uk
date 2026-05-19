@@ -1,0 +1,14 @@
+{
+  "name": "jaffdrop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fast self-hosted file sharing service for drop.jaffcloud.uk",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

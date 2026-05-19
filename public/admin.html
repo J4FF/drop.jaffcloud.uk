@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JaffDrop Admin</title>
+    <link rel="stylesheet" href="/assets/styles.css?v=11">
+  </head>
+  <body>
+    <main id="app" class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">JaffDrop</p>
+          <h1>Files</h1>
+        </div>
+        <div class="top-actions">
+          <button id="refresh" class="ghost" type="button">Refresh</button>
+          <button id="logout" class="ghost" type="button">Logout</button>
+        </div>
+      </header>
+
+      <section class="stats-grid" aria-label="Storage stats">
+        <div class="stat"><span>Files</span><strong id="stat-files">0</strong></div>
+        <div class="stat"><span>Stored</span><strong id="stat-stored">0 B</strong></div>
+        <div class="stat"><span>Shares</span><strong id="stat-shares">0</strong></div>
+        <div class="stat"><span>Downloads</span><strong id="stat-downloads">0</strong></div>
+      </section>
+
+      <section id="drop-zone" class="drop-zone">
+        <div>
+          <strong>Upload</strong>
+          <span>Drop files here or choose files/folders.</span>
+          <p id="upload-error" class="error" role="alert"></p>
+        </div>
+        <div class="button-row">
+          <button id="choose-files" class="primary" type="button">Choose files</button>
+          <button id="choose-folder" class="secondary" type="button">Choose folder</button>
+        </div>
+        <input id="file-input" class="file-input" type="file" multiple tabindex="-1" aria-hidden="true">
+        <input id="folder-input" class="file-input" type="file" webkitdirectory multiple tabindex="-1" aria-hidden="true">
+      </section>
+
+      <section id="uploads" class="upload-list" hidden></section>
+
+      <section class="workspace">
+        <div class="table-panel">
+          <div class="toolbar">
+            <label class="search">
+              <span>Search</span>
+              <input id="search" type="search" placeholder="Name, type, hash">
+            </label>
+            <select id="sort">
+              <option value="created-desc">Newest</option>
+              <option value="name-asc">Name A-Z</option>
+              <option value="size-desc">Largest</option>
+              <option value="downloads-desc">Most downloads</option>
+            </select>
+          </div>
+          <div id="selection-bar" class="selection-bar" hidden>
+            <strong id="selected-count">0 selected</strong>
+            <div class="button-row">
+              <button id="delete-selected" class="danger" type="button">Delete selected</button>
+              <button id="clear-selection" class="ghost" type="button">Clear</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="select-cell"><input id="select-all" type="checkbox" aria-label="Select all visible files"></th>
+                  <th>Name</th>
+                  <th>Size</th>
+                  <th>Type</th>
+                  <th>Shares</th>
+                  <th>Downloads</th>
+                  <th>Uploaded</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="file-rows"></tbody>
+            </table>
+          </div>
+          <p id="empty" class="empty" hidden>No files yet.</p>
+        </div>
+
+        <aside id="inspector" class="inspector">
+          <p class="muted">Select a file.</p>
+        </aside>
+      </section>
+    </main>
+
+    <dialog id="share-dialog">
+      <form method="dialog" class="dialog-head">
+        <h2>Share</h2>
+        <button class="ghost icon-button" value="cancel" aria-label="Close">x</button>
+      </form>
+      <div id="share-content"></div>
+    </dialog>
+
+    <script src="/assets/admin.js?v=11" type="module"></script>
+  </body>
+</html>

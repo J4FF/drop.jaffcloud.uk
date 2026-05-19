@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JaffDrop Login</title>
+    <link rel="stylesheet" href="/assets/styles.css?v=11">
+  </head>
+  <body>
+    <main class="login-shell">
+      <form id="login-form" class="login-panel">
+        <div>
+          <p class="eyebrow">JaffDrop</p>
+          <h1>Admin</h1>
+        </div>
+        <label class="field">
+          <span>Password</span>
+          <input id="password" type="password" autocomplete="current-password" required autofocus>
+        </label>
+        <button id="login-button" class="primary" type="submit">Sign in</button>
+        <a class="nav-link inline-link" href="/upload">Public upload</a>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+    </main>
+
+    <script src="/assets/login.js?v=11" type="module"></script>
+  </body>
+</html>

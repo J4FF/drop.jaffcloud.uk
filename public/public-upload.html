@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JaffDrop</title>
+    <link rel="stylesheet" href="/assets/styles.css?v=11">
+  </head>
+  <body>
+    <main class="public-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">JaffDrop</p>
+          <h1>Upload</h1>
+        </div>
+        <div class="top-actions">
+          <a class="nav-link" href="/admin">Admin</a>
+        </div>
+      </header>
+
+      <section id="public-drop-zone" class="drop-zone public-drop-zone">
+        <div>
+          <strong>Drop files</strong>
+          <span>Files from this page expire after 7 days.</span>
+          <p id="public-upload-error" class="error" role="alert"></p>
+        </div>
+        <div class="button-row">
+          <button id="public-choose-files" class="primary" type="button">Choose files</button>
+          <button id="public-choose-folder" class="secondary" type="button">Choose folder</button>
+        </div>
+        <input id="public-file-input" class="file-input" type="file" multiple tabindex="-1" aria-hidden="true">
+        <input id="public-folder-input" class="file-input" type="file" webkitdirectory multiple tabindex="-1" aria-hidden="true">
+      </section>
+
+      <section id="public-uploads" class="upload-list" hidden></section>
+      <section id="public-results" class="public-results" hidden></section>
+    </main>
+
+    <script src="/assets/public-upload.js?v=11" type="module"></script>
+  </body>
+</html>
