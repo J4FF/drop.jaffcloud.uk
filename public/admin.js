@@ -23,8 +23,8 @@ const state = {
   selectedIds: new Set(),
   uploadBaseUrl: ''
 };
-const LARGE_UPLOAD_CHUNK_SIZE = 64 * 1024 * 1024;
-const CHUNK_UPLOAD_CONCURRENCY = 2;
+const LARGE_UPLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
+const CHUNK_UPLOAD_CONCURRENCY = 1;
 
 init();
 

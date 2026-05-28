@@ -5,8 +5,8 @@ const uploadList = document.querySelector('#public-uploads');
 const results = document.querySelector('#public-results');
 const uploadError = document.querySelector('#public-upload-error');
 
-const LARGE_UPLOAD_CHUNK_SIZE = 64 * 1024 * 1024;
-const CHUNK_UPLOAD_CONCURRENCY = 2;
+const LARGE_UPLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
+const CHUNK_UPLOAD_CONCURRENCY = 1;
 const state = {
   uploads: new Map(),
   results: [],
