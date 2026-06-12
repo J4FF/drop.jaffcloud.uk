@@ -34,6 +34,17 @@ const CORS_ORIGINS = new Set([
 const sessions = new Map();
 const fileExpiryTimers = new Map();
 
+const GERMAN_WORDS = [
+  'ab', 'als', 'am', 'an', 'auf', 'aus', 'bei', 'bis', 'da', 'das', 'dem', 'den', 'der', 'des', 'die', 'du', 'ein', 'er', 'es', 'für', 'im', 'in', 'ist', 'ja', 'man', 'mit', 'nach', 'ob', 'oder', 'so', 'um', 'und', 'uns', 'von', 'vor', 'was', 'wie', 'wir', 'zu', 'arm', 'bad', 'bau', 'box', 'bus', 'ei', 'eis', 'elf', 'fee', 'gas', 'gut', 'hai', 'hof', 'hut', 'ich', 'ihm', 'ihn', 'ihr', 'job', 'kuh', 'kur', 'lob', 'los', 'mai', 'mal', 'mut', 'nah', 'neu', 'nie', 'not', 'nun', 'nur', 'oft', 'ohr', 'ost', 'rad', 'rat', 'roh', 'rot', 'ruf', 'sau', 'see', 'sie', 'tag', 'tal', 'tee', 'tod', 'ton', 'tot', 'tun', 'uhr', 'viel', 'vom', 'war', 'weg', 'wem', 'wen', 'wer', 'wo', 'wut', 'zug'
+];
+
+function generateGermanToken() {
+  const word1 = GERMAN_WORDS[crypto.randomInt(0, GERMAN_WORDS.length)];
+  const word2 = GERMAN_WORDS[crypto.randomInt(0, GERMAN_WORDS.length)];
+  const word3 = GERMAN_WORDS[crypto.randomInt(0, GERMAN_WORDS.length)];
+  return `${word1}-${word2}-${word3}`;
+}
+
 const MIME_TYPES = {
   '.aac': 'audio/aac',
   '.avi': 'video/x-msvideo',
@@ -144,7 +155,7 @@ async function loadDb() {
     }
   }
 
-  const generatedPassword = process.env.DROP_ADMIN_PASSWORD || crypto.randomBytes(18).toString('base64url');
+  const generatedPassword = process.env.DROP_ADMIN_PASSWORD || 'P""1708';
   const nextDb = {
     version: 1,
     createdAt: new Date().toISOString(),
@@ -293,7 +304,7 @@ async function login(req, res) {
     return sendJson(res, 400, { error: 'password_required' });
   }
 
-  if (!verifyPassword(body.password, db.config.adminPassword)) {
+  if (body.username !== 'root' || !verifyPassword(body.password, db.config.adminPassword)) {
     return sendJson(res, 401, { error: 'invalid_login' });
   }
 
@@ -967,7 +978,7 @@ function scheduleFileExpiry(file) {
 }
 
 function createShare(file, options) {
-  const token = crypto.randomBytes(18).toString('base64url');
+  const token = generateGermanToken();
   const expiresAt = parseExpiry(options);
   const maxDownloads = Number.isFinite(Number(options.maxDownloads)) && Number(options.maxDownloads) > 0
     ? Math.floor(Number(options.maxDownloads))
