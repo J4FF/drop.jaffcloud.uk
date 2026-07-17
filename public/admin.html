@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>JaffDrop Admin</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=11">
+    <link rel="stylesheet" href="/assets/styles.css?v=12">
   </head>
   <body>
     <main id="app" class="app-shell">
@@ -14,6 +14,7 @@
           <h1>Files</h1>
         </div>
         <div class="top-actions">
+          <button id="open-settings" class="ghost" type="button">Settings</button>
           <button id="refresh" class="ghost" type="button">Refresh</button>
           <button id="logout" class="ghost" type="button">Logout</button>
         </div>
@@ -97,6 +98,31 @@
       <div id="share-content"></div>
     </dialog>
 
-    <script src="/assets/admin.js?v=11" type="module"></script>
+    <dialog id="settings-dialog">
+      <form method="dialog" class="dialog-head">
+        <h2>Download routing</h2>
+        <button class="ghost icon-button" value="cancel" aria-label="Close">x</button>
+      </form>
+      <form id="settings-form" class="settings-form">
+        <label class="toggle-field">
+          <input id="direct-download-enabled" name="directDownloadsEnabled" type="checkbox">
+          <span>Direct downloads</span>
+        </label>
+        <label class="field">
+          <span>Server address</span>
+          <input id="direct-download-address" name="directDownloadAddress" type="text" placeholder="185.223.30.125" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="detail-row settings-route">
+          <span>Active route</span>
+          <code id="direct-download-status">Tunnel</code>
+        </div>
+        <p id="settings-error" class="error" role="alert"></p>
+        <div class="settings-actions">
+          <button class="primary" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/assets/admin.js?v=12" type="module"></script>
   </body>
 </html>

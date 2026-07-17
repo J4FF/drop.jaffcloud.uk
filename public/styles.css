@@ -499,6 +499,39 @@ dialog::backdrop {
   gap: 8px;
 }
 
+.settings-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.toggle-field {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.toggle-field input {
+  accent-color: var(--accent);
+  height: 18px;
+  min-height: 0;
+  width: 18px;
+}
+
+.toggle-field span {
+  font-weight: 700;
+}
+
+.settings-route code {
+  overflow-wrap: anywhere;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .share-main {
   display: grid;
   gap: 20px;

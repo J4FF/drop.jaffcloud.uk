@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import http from 'node:http';
+import { isIP } from 'node:net';
 import path from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -22,6 +23,7 @@ const MAX_CHUNK_BYTES = 96 * 1024 * 1024;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
 const UPLOAD_SESSION_TTL_MS = 1000 * 60 * 60 * 48;
 const PUBLIC_FILE_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const DIRECT_ACCESS_TTL_MS = 1000 * 60 * 15;
 const PBKDF2_ITERATIONS = 210000;
 const UPLOAD_BASE_URL = normalizeBaseUrl(process.env.DROP_UPLOAD_BASE_URL || '');
 const PUBLIC_ORIGIN = normalizeOrigin(process.env.DROP_PUBLIC_ORIGIN || '');
@@ -148,6 +150,9 @@ async function loadDb() {
     parsed.config ||= {};
     parsed.stats ||= {};
     parsed.config.sessionSecret ||= crypto.randomBytes(32).toString('base64url');
+    parsed.config.directDownloadOrigin = normalizeDirectDownloadAddress(parsed.config.directDownloadOrigin);
+    parsed.config.directDownloadsEnabled = parsed.config.directDownloadsEnabled === true
+      && Boolean(parsed.config.directDownloadOrigin);
     return parsed;
   } catch (error) {
     if (error.code !== 'ENOENT') {
@@ -155,13 +160,15 @@ async function loadDb() {
     }
   }
 
-  const generatedPassword = process.env.DROP_ADMIN_PASSWORD || 'P""1708';
+  const generatedPassword = process.env.DROP_ADMIN_PASSWORD || crypto.randomBytes(18).toString('base64url');
   const nextDb = {
     version: 1,
     createdAt: new Date().toISOString(),
     config: {
       adminPassword: hashPassword(generatedPassword),
-      sessionSecret: crypto.randomBytes(32).toString('base64url')
+      sessionSecret: crypto.randomBytes(32).toString('base64url'),
+      directDownloadsEnabled: false,
+      directDownloadOrigin: ''
     },
     files: {},
     shares: {},
@@ -228,7 +235,8 @@ async function handle(req, res) {
 
   if (req.method === 'GET' && pathname === '/api/config') {
     return sendJson(res, 200, {
-      uploadBaseUrl: UPLOAD_BASE_URL
+      uploadBaseUrl: UPLOAD_BASE_URL,
+      directDownloadOrigin: activeDirectDownloadOrigin()
     });
   }
 
@@ -304,7 +312,7 @@ async function login(req, res) {
     return sendJson(res, 400, { error: 'password_required' });
   }
 
-  if (body.username !== 'root' || !verifyPassword(body.password, db.config.adminPassword)) {
+  if (!verifyPassword(body.password, db.config.adminPassword)) {
     return sendJson(res, 401, { error: 'invalid_login' });
   }
 
@@ -337,6 +345,25 @@ async function handleAdminApi(req, res, requestUrl) {
 
   if (parts[1] === 'stats' && req.method === 'GET') {
     return sendJson(res, 200, statsView());
+  }
+
+  if (parts[1] === 'settings' && req.method === 'GET') {
+    return sendJson(res, 200, downloadSettingsView());
+  }
+
+  if (parts[1] === 'settings' && req.method === 'PATCH') {
+    const body = await readJson(req);
+    if (!body || typeof body.directDownloadsEnabled !== 'boolean') {
+      return sendJson(res, 400, { error: 'direct_download_setting_required' });
+    }
+    const origin = normalizeDirectDownloadAddress(body.directDownloadAddress);
+    if (body.directDownloadsEnabled && !origin) {
+      return sendJson(res, 400, { error: 'direct_download_address_required' });
+    }
+    db.config.directDownloadsEnabled = body.directDownloadsEnabled;
+    db.config.directDownloadOrigin = origin;
+    await saveDb();
+    return sendJson(res, 200, downloadSettingsView());
   }
 
   if (parts[1] === 'files') {
@@ -618,7 +645,7 @@ async function completeChunkedUpload(req, res, uploadId, options = {}) {
       file: fileView(file),
       share: shareView(share),
       shareUrl: `/s/${share.token}`,
-      directUrl: `/d/${share.token}`,
+      directUrl: directDownloadUrl(share),
       expiresAt: file.expiresAt
     });
   }
@@ -1058,11 +1085,11 @@ async function handleDirectDownload(req, res, requestUrl) {
   if (!token || (req.method !== 'GET' && req.method !== 'HEAD')) {
     return sendJson(res, 404, { error: 'not_found' });
   }
-  return streamShareDownload(req, res, token);
+  return streamShareDownload(req, res, token, requestUrl.searchParams.get('access') || '');
 }
 
-async function streamShareDownload(req, res, token) {
-  const validation = validateShare(req, token, true);
+async function streamShareDownload(req, res, token, directAccess = '') {
+  const validation = validateShare(req, token, true, directAccess);
   if (!validation.ok) {
     return sendJson(res, validation.status, { error: validation.error });
   }
@@ -1074,7 +1101,7 @@ async function streamShareDownload(req, res, token) {
   return streamStoredFile(req, res, validation.file, { download: true, cache: 'private, max-age=300' });
 }
 
-function validateShare(req, token, requirePassword) {
+function validateShare(req, token, requirePassword, directAccess = '') {
   const share = db.shares[token];
   if (!share) {
     return { ok: false, status: 404, error: 'share_not_found' };
@@ -1092,7 +1119,7 @@ function validateShare(req, token, requirePassword) {
   if (share.maxDownloads && share.downloadCount >= share.maxDownloads) {
     return { ok: false, status: 410, error: 'download_limit_reached' };
   }
-  if (requirePassword && share.password && !hasShareCookie(req, share)) {
+  if (requirePassword && share.password && !hasShareCookie(req, share) && !hasDirectAccess(share, directAccess)) {
     return { ok: false, status: 401, error: 'password_required' };
   }
   return { ok: true, share, file };
@@ -1380,6 +1407,38 @@ function shareCookieValue(share) {
     .digest('base64url');
 }
 
+function directAccessToken(share) {
+  if (!share.password) {
+    return '';
+  }
+  const shareExpiry = share.expiresAt ? new Date(share.expiresAt).getTime() : Number.POSITIVE_INFINITY;
+  const expiresAt = Math.floor(Math.min(Date.now() + DIRECT_ACCESS_TTL_MS, shareExpiry) / 1000);
+  const signature = crypto
+    .createHmac('sha256', db.config.sessionSecret)
+    .update(`direct:${share.token}:${expiresAt}:${share.password.hash}`)
+    .digest('base64url');
+  return `${expiresAt}.${signature}`;
+}
+
+function hasDirectAccess(share, value) {
+  if (!share.password || typeof value !== 'string') {
+    return false;
+  }
+  const match = /^(\d+)\.([A-Za-z0-9_-]+)$/.exec(value);
+  if (!match) {
+    return false;
+  }
+  const expiresAt = Number(match[1]);
+  if (!Number.isSafeInteger(expiresAt) || expiresAt * 1000 <= Date.now()) {
+    return false;
+  }
+  const expected = crypto
+    .createHmac('sha256', db.config.sessionSecret)
+    .update(`direct:${share.token}:${expiresAt}:${share.password.hash}`)
+    .digest('base64url');
+  return safeEqual(match[2], expected);
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('base64url');
   return {
@@ -1461,7 +1520,8 @@ function shareView(share) {
     maxDownloads: share.maxDownloads,
     downloadCount: share.downloadCount || 0,
     passwordProtected: Boolean(share.password),
-    note: share.note || ''
+    note: share.note || '',
+    directUrl: directDownloadUrl(share, { authorize: true })
   };
 }
 
@@ -1478,7 +1538,8 @@ function publicShareView(req, share, file) {
     downloadCount: share.downloadCount || 0,
     passwordRequired: Boolean(share.password),
     authorized,
-    preview: authorized ? previewType(file) : null
+    preview: authorized ? previewType(file) : null,
+    directUrl: authorized ? directDownloadUrl(share, { authorize: true }) : null
   };
 }
 
@@ -1580,6 +1641,61 @@ function safeUrl(req) {
 function normalizeBaseUrl(value) {
   const origin = normalizeOrigin(value);
   return origin || '';
+}
+
+function normalizeDirectDownloadAddress(value) {
+  const input = String(value || '').trim();
+  if (!input) {
+    return '';
+  }
+  const hasProtocol = /^https?:\/\//i.test(input);
+  let candidate = input;
+  if (!hasProtocol) {
+    if (isIP(input) === 6) {
+      candidate = `http://[${input}]:${PORT}`;
+    } else {
+      candidate = `http://${input}`;
+    }
+  }
+  try {
+    const url = new URL(candidate);
+    if ((url.protocol !== 'https:' && url.protocol !== 'http:')
+      || url.username
+      || url.password
+      || (url.pathname !== '/' && url.pathname !== '')
+      || url.search
+      || url.hash) {
+      return '';
+    }
+    if (!hasProtocol && !url.port) {
+      url.port = String(PORT);
+    }
+    return url.origin;
+  } catch {
+    return '';
+  }
+}
+
+function activeDirectDownloadOrigin() {
+  if (db.config.directDownloadsEnabled !== true) {
+    return '';
+  }
+  return normalizeDirectDownloadAddress(db.config.directDownloadOrigin);
+}
+
+function downloadSettingsView() {
+  return {
+    directDownloadsEnabled: db.config.directDownloadsEnabled === true,
+    directDownloadAddress: db.config.directDownloadOrigin || '',
+    activeDirectDownloadOrigin: activeDirectDownloadOrigin()
+  };
+}
+
+function directDownloadUrl(share, options = {}) {
+  const pathname = `/d/${encodeURIComponent(share.token)}`;
+  const access = options.authorize ? directAccessToken(share) : '';
+  const suffix = access ? `?access=${encodeURIComponent(access)}` : '';
+  return `${activeDirectDownloadOrigin()}${pathname}${suffix}`;
 }
 
 function normalizeOrigin(value) {
