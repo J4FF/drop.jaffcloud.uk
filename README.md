@@ -50,6 +50,20 @@ npm start
 
 ---
 
+### Download Routing
+
+The admin dashboard includes a **Download routing** setting:
+
+- Disabled: share downloads use the current JaffDrop origin, including an existing Cloudflare Tunnel.
+- Enabled with a bare IP or hostname: JaffDrop generates `http://ADDRESS:8787` download links.
+- Enabled with a full URL: JaffDrop uses that HTTP(S) origin as entered, for example `https://dl.example.com`.
+
+Only file downloads use the configured origin. Share pages, previews, uploads, and the admin dashboard remain on the primary JaffDrop origin. Password-protected shares receive a short-lived signed download URL after successful authorization.
+
+Expose direct downloads through HTTPS whenever possible. A bare HTTP address publishes the JaffDrop port directly and does not provide transport encryption.
+
+---
+
 ## ⚙️ Deployment
 
 ### Systemd

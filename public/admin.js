@@ -4,6 +4,12 @@ const inspector = document.querySelector('#inspector');
 const uploadList = document.querySelector('#uploads');
 const shareDialog = document.querySelector('#share-dialog');
 const shareContent = document.querySelector('#share-content');
+const settingsDialog = document.querySelector('#settings-dialog');
+const settingsForm = document.querySelector('#settings-form');
+const directDownloadEnabled = document.querySelector('#direct-download-enabled');
+const directDownloadAddress = document.querySelector('#direct-download-address');
+const directDownloadStatus = document.querySelector('#direct-download-status');
+const settingsError = document.querySelector('#settings-error');
 const searchInput = document.querySelector('#search');
 const sortSelect = document.querySelector('#sort');
 const dropZone = document.querySelector('#drop-zone');
@@ -21,7 +27,8 @@ const state = {
   selectedId: null,
   uploads: new Map(),
   selectedIds: new Set(),
-  uploadBaseUrl: ''
+  uploadBaseUrl: '',
+  directDownloadOrigin: ''
 };
 const LARGE_UPLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
 const CHUNK_UPLOAD_CONCURRENCY = 1;
@@ -48,6 +55,7 @@ function bindEvents() {
   });
 
   document.querySelector('#refresh').addEventListener('click', loadFiles);
+  document.querySelector('#open-settings').addEventListener('click', openSettings);
   document.querySelector('#choose-files').addEventListener('click', () => {
     fileInput.value = '';
     fileInput.click();
@@ -63,6 +71,9 @@ function bindEvents() {
   selectAll.addEventListener('change', () => toggleVisibleSelection(selectAll.checked));
   deleteSelectedButton.addEventListener('click', deleteSelectedFiles);
   clearSelectionButton.addEventListener('click', clearSelection);
+  directDownloadEnabled.addEventListener('change', syncSettingsForm);
+  directDownloadAddress.addEventListener('input', syncSettingsForm);
+  settingsForm.addEventListener('submit', saveSettings);
 
   for (const name of ['dragenter', 'dragover']) {
     dropZone.addEventListener(name, (event) => {
@@ -566,7 +577,7 @@ function renderShareDialog(file) {
 
 function fullShareItem(share) {
   const page = `${location.origin}/s/${share.token}`;
-  const direct = `${location.origin}/d/${share.token}`;
+  const direct = new URL(share.directUrl || `/d/${encodeURIComponent(share.token)}`, location.origin).href;
   return `
     <div class="share-item">
       ${shareSummary(share)}
@@ -817,8 +828,54 @@ async function loadConfig() {
     if (!response.ok) return;
     const config = await response.json().catch(() => ({}));
     setUploadBaseUrl(config.uploadBaseUrl);
+    state.directDownloadOrigin = typeof config.directDownloadOrigin === 'string'
+      ? config.directDownloadOrigin
+      : '';
   } catch {
     // Keep same-origin uploads when config cannot be loaded.
+  }
+}
+
+async function openSettings() {
+  settingsError.textContent = '';
+  const settings = await api('/api/settings');
+  directDownloadEnabled.checked = settings.directDownloadsEnabled === true;
+  directDownloadAddress.value = settings.directDownloadAddress || '';
+  renderSettingsRoute(settings.activeDirectDownloadOrigin || '');
+  syncSettingsForm();
+  settingsDialog.showModal();
+}
+
+function syncSettingsForm() {
+  directDownloadAddress.disabled = !directDownloadEnabled.checked;
+  renderSettingsRoute(directDownloadEnabled.checked ? directDownloadAddress.value.trim() : '');
+}
+
+function renderSettingsRoute(origin) {
+  directDownloadStatus.textContent = origin || 'Tunnel';
+}
+
+async function saveSettings(event) {
+  event.preventDefault();
+  settingsError.textContent = '';
+  try {
+    const settings = await api('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        directDownloadsEnabled: directDownloadEnabled.checked,
+        directDownloadAddress: directDownloadAddress.value.trim()
+      })
+    });
+    state.directDownloadOrigin = settings.activeDirectDownloadOrigin || '';
+    directDownloadAddress.value = settings.directDownloadAddress || '';
+    renderSettingsRoute(state.directDownloadOrigin);
+    await loadFiles(false);
+    settingsDialog.close();
+  } catch (error) {
+    settingsError.textContent = error.message === 'direct_download_address_required'
+      ? 'Enter a valid IP address, host, or HTTP(S) URL.'
+      : error.message;
   }
 }
 

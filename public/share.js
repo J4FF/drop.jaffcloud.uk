@@ -54,8 +54,9 @@ function renderPassword(data) {
 
 function renderShare(data) {
   const raw = `/s/${encodeURIComponent(token)}/raw`;
-  const download = `/s/${encodeURIComponent(token)}/download`;
-  const direct = `/d/${encodeURIComponent(token)}`;
+  const tunnelDownload = `/s/${encodeURIComponent(token)}/download`;
+  const direct = data.directUrl || `/d/${encodeURIComponent(token)}`;
+  const download = data.directUrl || tunnelDownload;
   root.innerHTML = `
     <div class="share-main">
       <div>
